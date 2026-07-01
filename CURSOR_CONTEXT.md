@@ -109,6 +109,7 @@ rag-ops-assistant/
 | Chunking strategy | Recursive | Respects document structure |
 | Ingest strategy | Full refresh | Simple, no duplicates, no stale data |
 | Document source | Databricks Volume | Enterprise pattern, portable |
+| Job compute | Serverless | Workspace only supports serverless — no job_clusters |
 | GitHub setup | Automated via PLAYBOOK | Reduces manual steps |
 | CLI profile | `dev` | Matches `databricks.yml` target workspace |
 | Bundle workspace host | Literal URL in targets | DABs does not resolve `${var}` for `workspace.host` |
@@ -150,7 +151,7 @@ databricks bundle deploy --profile dev
 databricks bundle destroy --profile dev
 
 # Upload documents to volume (run after deploy)
-databricks fs cp ./documents/ dbfs:/Volumes/workspace/rag_poc/docs/ --recursive
+databricks fs cp ./documents/ dbfs:/Volumes/workspace/rag_poc/docs/ --recursive --profile dev
 
 ---
 

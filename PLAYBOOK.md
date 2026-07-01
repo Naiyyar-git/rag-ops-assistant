@@ -95,18 +95,30 @@ You should see all files in GitHub.
 ```bash
 databricks bundle deploy --profile dev
 ```
-This creates:
-- Schema: workspace.rag_poc
-- Job: rag-ops-assistant-pipeline in Databricks Workflows
-Expected output: "Bundle deployed successfully"
+This creates the job `rag-ops-assistant-pipeline` in Databricks Workflows.
+Expected output: `Deployment complete!`
 
-### Step 7: Upload documents to Databricks Volume
+Note: deploy does **not** create the schema/volume yet — that happens in Step 7.
+
+### Step 7: Run setup first (creates schema + volume)
+The volume must exist before you can upload documents. Run **one command**:
+
 ```bash
-databricks fs cp ./documents/ dbfs:/Volumes/workspace/rag_poc/docs/ --recursive
+databricks bundle run rag_ops_pipeline --only setup --profile dev
 ```
-Verify upload:
+
+Wait until it finishes (about 2–5 minutes). Expected final state: `TERMINATED` / `SUCCESS`.
+
+**UI alternative:** Workspace → Users → `naiyyar@gmail.com` → `.bundle` → `rag-ops-assistant` → `dev` → `files` → `setup` → `init_catalog` → Run All
+
+### Step 8: Upload documents to Databricks Volume
 ```bash
-databricks fs ls dbfs:/Volumes/workspace/rag_poc/docs/
+databricks fs cp ./documents/ dbfs:/Volumes/workspace/rag_poc/docs/ --recursive --profile dev
+```
+
+Verify upload (run separately after upload finishes):
+```bash
+databricks fs ls dbfs:/Volumes/workspace/rag_poc/docs/ --profile dev
 ```
 You should see all 5 .md files listed.
 
@@ -114,22 +126,15 @@ You should see all 5 .md files listed.
 
 ## PHASE 4 — Run The Pipeline (15 minutes)
 
-### Step 8: Run the setup notebook manually first
-In Databricks workspace UI:
-- Go to: Workspace → rag-ops-assistant → setup → init_catalog
-- Click Run All
-- Verify output: "Setup complete. All resources ready."
-
-### Step 9: Run the pipeline job
+### Step 9: Run ingest + embed
 Option A — Via Databricks UI:
-- Go to Workflows → rag-ops-assistant-pipeline → Run Now
-- Watch tasks run in sequence: setup → ingest_docs → embed_index
-- Each task should show green checkmark when complete
-- Full run time: approximately 10-15 minutes
+- Go to Workflows → `[dev naiyyar] rag-ops-assistant-pipeline` → Run Now
+- Watch tasks: setup → ingest_docs → embed_index (setup will re-run harmlessly)
+- Full run time: approximately 10–15 minutes
 
-Option B — Via CLI:
+Option B — Via CLI (one command):
 ```bash
-databricks jobs run-now --job-name rag-ops-assistant-pipeline
+databricks bundle run rag_ops_pipeline --profile dev
 ```
 
 ### Step 10: Verify pipeline success
@@ -224,7 +229,8 @@ databricks bundle deploy
 | unknown flag on configure | CLI v1: use `databricks configure --host <url> --profile dev`, not `--token` |
 | auth / refresh token invalid | Re-run Step 2 to configure PAT on the `dev` profile |
 | Cluster not found | Free tier may need different node type — change i3.xlarge to m5.xlarge in databricks.yml |
-| Volume upload fails | Run init_catalog notebook first to create the volume |
+| Only serverless compute supported | Remove `job_clusters` from databricks.yml — notebook tasks run serverless by default |
+| Volume upload fails | Run setup first (Step 7) — schema `workspace.rag_poc` must exist before upload |
 | LLM endpoint not found | Check available endpoints: Databricks UI → Serving → Endpoints |
 | FAISS index not found | Run notebook 02 before notebook 03 |
 | Permission denied on Unity Catalog | Your PAT token may have expired — regenerate it |

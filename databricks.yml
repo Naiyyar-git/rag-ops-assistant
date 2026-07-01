@@ -36,19 +36,9 @@ resources:
       name: rag-ops-assistant-pipeline
       description: "RAG Ops Assistant — setup, ingest, embed pipeline"
 
-      job_clusters:
-        - job_cluster_key: main_cluster
-          new_cluster:
-            spark_version: 15.4.x-scala2.12
-            node_type_id: i3.xlarge
-            num_workers: 1
-            spark_env_vars:
-              DATABRICKS_HOST: ${var.workspace_host}
-
       tasks:
         - task_key: setup
           description: "Create schema and volume if not exists"
-          job_cluster_key: main_cluster
           notebook_task:
             notebook_path: ./setup/init_catalog.py
             base_parameters:
@@ -60,7 +50,6 @@ resources:
           description: "Read documents, chunk, store in Delta table"
           depends_on:
             - task_key: setup
-          job_cluster_key: main_cluster
           notebook_task:
             notebook_path: ./notebooks/01_ingest_docs.py
             base_parameters:
@@ -72,7 +61,6 @@ resources:
           description: "Embed chunks, build FAISS index, save to volume"
           depends_on:
             - task_key: ingest_docs
-          job_cluster_key: main_cluster
           notebook_task:
             notebook_path: ./notebooks/02_embed_index.py
             base_parameters:

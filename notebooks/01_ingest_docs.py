@@ -188,13 +188,41 @@ print(f"\nTotal chunks across all documents: {len(all_rows)}")
 # Clear existing data first to avoid stale chunks from deleted documents
 
 from pyspark.sql import Row
-from pyspark.sql.functions import current_timestamp
+from pyspark.sql.types import (
+    IntegerType,
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
+)
+
+chunk_schema = StructType([
+    StructField("chunk_id", StringType(), False),
+    StructField("source_file", StringType(), False),
+    StructField("file_type", StringType(), False),
+    StructField("chunk_text", StringType(), False),
+    StructField("chunk_index", IntegerType(), False),
+    StructField("total_chunks", IntegerType(), False),
+    StructField("ingested_at", TimestampType(), False),
+])
 
 print(f"Clearing existing data from {table_name}...")
 spark.sql(f"DELETE FROM {table_name}")
 
 print(f"Writing {len(all_rows)} chunks to {table_name}...")
-df = spark.createDataFrame([Row(**r) for r in all_rows])
+rows = [
+    Row(
+        chunk_id=r["chunk_id"],
+        source_file=r["source_file"],
+        file_type=r["file_type"],
+        chunk_text=r["chunk_text"],
+        chunk_index=int(r["chunk_index"]),
+        total_chunks=int(r["total_chunks"]),
+        ingested_at=r["ingested_at"],
+    )
+    for r in all_rows
+]
+df = spark.createDataFrame(rows, schema=chunk_schema)
 df.write.mode("append").saveAsTable(table_name)
 
 # COMMAND ----------
