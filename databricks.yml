@@ -1,0 +1,81 @@
+bundle:
+  name: rag-ops-assistant
+
+variables:
+  catalog:
+    description: Unity Catalog name
+    default: workspace
+  schema:
+    description: Schema name — isolated from all other projects
+    default: rag_poc
+  volume:
+    description: Volume name for document storage
+    default: docs
+  workspace_host:
+    description: Databricks workspace URL
+    default: https://dbc-0bce7ae2-f77e.cloud.databricks.com
+  llm_endpoint:
+    description: Databricks Foundation Model endpoint for LLM
+    default: databricks-meta-llama-3-3-70b-instruct
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: https://dbc-0bce7ae2-f77e.cloud.databricks.com
+
+  prod:
+    mode: production
+    workspace:
+      host: https://dbc-0bce7ae2-f77e.cloud.databricks.com
+
+resources:
+  jobs:
+    rag_ops_pipeline:
+      name: rag-ops-assistant-pipeline
+      description: "RAG Ops Assistant — setup, ingest, embed pipeline"
+
+      job_clusters:
+        - job_cluster_key: main_cluster
+          new_cluster:
+            spark_version: 15.4.x-scala2.12
+            node_type_id: i3.xlarge
+            num_workers: 1
+            spark_env_vars:
+              DATABRICKS_HOST: ${var.workspace_host}
+
+      tasks:
+        - task_key: setup
+          description: "Create schema and volume if not exists"
+          job_cluster_key: main_cluster
+          notebook_task:
+            notebook_path: ./setup/init_catalog.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+              volume: ${var.volume}
+
+        - task_key: ingest_docs
+          description: "Read documents, chunk, store in Delta table"
+          depends_on:
+            - task_key: setup
+          job_cluster_key: main_cluster
+          notebook_task:
+            notebook_path: ./notebooks/01_ingest_docs.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+              volume: ${var.volume}
+
+        - task_key: embed_index
+          description: "Embed chunks, build FAISS index, save to volume"
+          depends_on:
+            - task_key: ingest_docs
+          job_cluster_key: main_cluster
+          notebook_task:
+            notebook_path: ./notebooks/02_embed_index.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+              volume: ${var.volume}
